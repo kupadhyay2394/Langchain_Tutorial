@@ -1,8 +1,15 @@
 from langchain_sambanova import ChatSambaNovaCloud
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from fastapi import FastAPI
+from langserve import add_routes
+import uvicorn
+from langchain_community.llms import Ollama
 
-import streamlit as st
+
+
+
+
+
 import os
 from dotenv import load_dotenv
 
@@ -10,25 +17,37 @@ load_dotenv()
 
 os.environ["SAMBANOVA_API_KEY"]= os.getenv("SAMBANOVA_API_KEY")
 
-os.environ["LANGCHAIN_KEY"]= os.getenv("LANGCHAIN_KEY")
 
-os.environ["LANGCHAIN_TRACING_V2"]="true"
-
-
-prompt=ChatPromptTemplate.from_messages(
-    [
-        ("system","you are helpful assistant. Please provide response to user query"),
-        ("user","Question:{question}")
-    ]
+app=FastAPI(
+    title="Langchain Server",
+    version="1.0",
+    discription="A Simple API SERVER"
 )
 
+# chain the output of diffrent llm model and provide api
 
-st.title("Langchain Demo for Q&A")
-input_text=st.text_input("Searh the topic you want")
+add_routes(
+    app, 
+    ChatSambaNovaCloud(),
+    path="/SambaNovaCloud"
+)
+model= ChatSambaNovaCloud()
+llm=Ollama(model='llama2')
 
-llm =ChatSambaNovaCloud(model="DeepSeek-V3-0324")
-output_parser=StrOutputParser()
+prompt1= ChatPromptTemplate.from_template("write essay about {topic} with 100 word")
+prompt2= ChatPromptTemplate.from_template("write poem  on {topic}  for 5 year old kid")
 
-chain=prompt|llm|output_parser
-if input_text:
-    st.write(chain.invoke({'question':input_text}))
+add_routes(
+    app,
+    prompt1|model,
+    path='/essay'
+)
+
+add_routes(
+    app,
+    prompt2|model,
+    path='/poem'
+)
+
+if __name__=="__main__":
+    uvicorn.run(app,host='localhost', port=8000)
